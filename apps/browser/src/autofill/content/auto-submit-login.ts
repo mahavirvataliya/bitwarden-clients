@@ -109,7 +109,7 @@ import {
     // Check if auto-submit is enabled via feature flag
     if (fillScript.enableAutoSubmit === false) {
       endUpAutoSubmitLoginWorkflow();
-      throw new Error("Auto-submit is disabled via feature flag.");
+      return; // Skip auto-submit when feature flag is disabled
     }
 
     updateIsFieldCurrentlyFilling(true);

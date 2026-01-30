@@ -125,12 +125,28 @@ npm test
 
 ### Manual Testing
 
-1. Open `apps/browser/test-password-protection.html` in your browser
+A manual test HTML page is available for local testing but is not included in the repository. You can create your own test page with the following elements:
+
+1. Create an HTML file with login forms
 2. Install the Bitwarden extension with the feature flags enabled
-3. Save credentials for the test page
+3. Save credentials for the test page in Bitwarden
 4. Use Bitwarden to autofill the forms
 5. Try to change password field types using DevTools
 6. Verify that password values are cleared
+
+Example test HTML structure:
+```html
+<!DOCTYPE html>
+<html>
+<body>
+  <form>
+    <input type="text" name="username" />
+    <input type="password" name="password" />
+    <button type="submit">Login</button>
+  </form>
+</body>
+</html>
+```
 
 ### Testing Password Protection
 

@@ -24,7 +24,10 @@ class InsertAutofillContentService implements InsertAutofillContentServiceInterf
     click_on_opid: ({ opid }) => this.handleClickOnFieldByOpidAction(opid),
     focus_by_opid: ({ opid }) => this.handleFocusOnFieldByOpidAction(opid),
   };
-  private passwordFieldObservers: Map<HTMLInputElement, MutationObserver> = new Map();
+  private passwordFieldObservers: Map<
+    HTMLInputElement,
+    { observer: MutationObserver; cleanupObserver: MutationObserver }
+  > = new Map();
   private preventPasswordInspection: boolean = false;
 
   /**
@@ -428,10 +431,8 @@ class InsertAutofillContentService implements InsertAutofillContentServiceInterf
       attributeFilter: ["type"],
     });
 
-    // Store the observer so we can clean it up later if needed
-    this.passwordFieldObservers.set(element, observer);
-
     // Clean up observer when element is removed from DOM
+    // Use a more efficient approach by checking periodically rather than observing entire DOM
     const cleanupObserver = new MutationObserver(() => {
       if (!document.contains(element)) {
         this.cleanupPasswordFieldObserver(element);
@@ -439,21 +440,27 @@ class InsertAutofillContentService implements InsertAutofillContentServiceInterf
       }
     });
 
-    cleanupObserver.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    // Only observe the element's parent to reduce performance impact
+    if (element.parentElement) {
+      cleanupObserver.observe(element.parentElement, {
+        childList: true,
+      });
+    }
+
+    // Store both observers so we can clean them up later
+    this.passwordFieldObservers.set(element, { observer, cleanupObserver });
   }
 
   /**
-   * Cleans up the MutationObserver for a password field.
+   * Cleans up the MutationObservers for a password field.
    * @param {HTMLInputElement} element - The password field to stop monitoring
    * @private
    */
   private cleanupPasswordFieldObserver(element: HTMLInputElement): void {
-    const observer = this.passwordFieldObservers.get(element);
-    if (observer) {
-      observer.disconnect();
+    const observers = this.passwordFieldObservers.get(element);
+    if (observers) {
+      observers.observer.disconnect();
+      observers.cleanupObserver.disconnect();
       this.passwordFieldObservers.delete(element);
     }
   }

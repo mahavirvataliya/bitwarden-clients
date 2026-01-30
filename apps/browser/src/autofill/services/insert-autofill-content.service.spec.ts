@@ -1127,6 +1127,18 @@ describe("InsertAutofillContentService", () => {
         expect(observers.has(passwordInput)).toBe(false);
       });
 
+      it("should not set up a MutationObserver when feature flag is undefined (defaults to false)", async () => {
+        fillScript.preventPasswordInspection = undefined;
+        fillScript.script = [[FillScriptActionTypes.fill_by_opid, "password", "mySecretPassword"]];
+
+        passwordInput.setAttribute("data-opid", "password");
+
+        await insertAutofillContentService.fillForm(fillScript);
+
+        const observers = insertAutofillContentService["passwordFieldObservers"];
+        expect(observers.has(passwordInput)).toBe(false);
+      });
+
       it("should clear password value when type attribute changes from password to text", async () => {
         fillScript.preventPasswordInspection = true;
         fillScript.script = [[FillScriptActionTypes.fill_by_opid, "password", "mySecretPassword"]];
@@ -1210,7 +1222,7 @@ describe("InsertAutofillContentService", () => {
     });
 
     describe("cleanupPasswordFieldObserver", () => {
-      it("should disconnect and remove the observer", async () => {
+      it("should disconnect and remove both observers", async () => {
         fillScript.preventPasswordInspection = true;
         fillScript.script = [[FillScriptActionTypes.fill_by_opid, "password", "mySecretPassword"]];
 
@@ -1221,7 +1233,13 @@ describe("InsertAutofillContentService", () => {
         const observers = insertAutofillContentService["passwordFieldObservers"];
         expect(observers.has(passwordInput)).toBe(true);
 
-        // Clean up the observer
+        // Verify both observers are stored
+        const observerPair = observers.get(passwordInput);
+        expect(observerPair).toBeDefined();
+        expect(observerPair?.observer).toBeDefined();
+        expect(observerPair?.cleanupObserver).toBeDefined();
+
+        // Clean up the observers
         insertAutofillContentService["cleanupPasswordFieldObserver"](passwordInput);
 
         expect(observers.has(passwordInput)).toBe(false);
