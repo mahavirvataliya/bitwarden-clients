@@ -1,5 +1,8 @@
 config/local.json
 
+# Test files
+test-password-protection.html
+
 # Safari
 dist-safari
 !src/safari/safari/app/popup/index.html
