@@ -1087,4 +1087,163 @@ describe("InsertAutofillContentService", () => {
       });
     });
   });
+
+  describe("Password Field Protection", () => {
+    let passwordInput: HTMLInputElement;
+
+    beforeEach(() => {
+      document.body.innerHTML = `
+        <form>
+          <input type="password" id="password" value="" />
+        </form>
+      `;
+      passwordInput = document.getElementById("password") as HTMLInputElement;
+    });
+
+    describe("setupPasswordFieldProtection", () => {
+      it("should set up a MutationObserver on the password field when feature flag is enabled", async () => {
+        fillScript.preventPasswordInspection = true;
+        fillScript.script = [[FillScriptActionTypes.fill_by_opid, "password", "mySecretPassword"]];
+
+        // Add opid to the element so it can be found by the fill script
+        passwordInput.setAttribute("data-opid", "password");
+
+        await insertAutofillContentService.fillForm(fillScript);
+
+        // Verify the observer was set up by checking the internal map
+        const observers = insertAutofillContentService["passwordFieldObservers"];
+        expect(observers.has(passwordInput)).toBe(true);
+      });
+
+      it("should not set up a MutationObserver when feature flag is disabled", async () => {
+        fillScript.preventPasswordInspection = false;
+        fillScript.script = [[FillScriptActionTypes.fill_by_opid, "password", "mySecretPassword"]];
+
+        passwordInput.setAttribute("data-opid", "password");
+
+        await insertAutofillContentService.fillForm(fillScript);
+
+        const observers = insertAutofillContentService["passwordFieldObservers"];
+        expect(observers.has(passwordInput)).toBe(false);
+      });
+
+      it("should set up a MutationObserver when feature flag is undefined (defaults to true for security)", async () => {
+        fillScript.preventPasswordInspection = undefined;
+        fillScript.script = [[FillScriptActionTypes.fill_by_opid, "password", "mySecretPassword"]];
+
+        passwordInput.setAttribute("data-opid", "password");
+
+        await insertAutofillContentService.fillForm(fillScript);
+
+        const observers = insertAutofillContentService["passwordFieldObservers"];
+        expect(observers.has(passwordInput)).toBe(true);
+      });
+
+      it("should clear password value when type attribute changes from password to text", async () => {
+        fillScript.preventPasswordInspection = true;
+        fillScript.script = [[FillScriptActionTypes.fill_by_opid, "password", "mySecretPassword"]];
+
+        passwordInput.setAttribute("data-opid", "password");
+
+        await insertAutofillContentService.fillForm(fillScript);
+
+        // Wait for the fill to complete
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Verify password was filled
+        expect(passwordInput.value).toBe("mySecretPassword");
+
+        // Spy on dispatchEvent to verify events are fired
+        jest.spyOn(passwordInput, "dispatchEvent");
+
+        // Simulate an attacker changing the type attribute via inspect element
+        passwordInput.setAttribute("type", "text");
+
+        // Wait for the MutationObserver to detect the change
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Verify password was cleared
+        expect(passwordInput.value).toBe("");
+
+        // Verify events were dispatched
+        expect(passwordInput.dispatchEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: EVENTS.INPUT,
+            bubbles: true,
+          }),
+        );
+        expect(passwordInput.dispatchEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: EVENTS.CHANGE,
+            bubbles: true,
+          }),
+        );
+      });
+
+      it("should not clear password value when type attribute remains password", async () => {
+        fillScript.preventPasswordInspection = true;
+        fillScript.script = [[FillScriptActionTypes.fill_by_opid, "password", "mySecretPassword"]];
+
+        passwordInput.setAttribute("data-opid", "password");
+
+        await insertAutofillContentService.fillForm(fillScript);
+
+        // Wait for the fill to complete
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Verify password was filled
+        expect(passwordInput.value).toBe("mySecretPassword");
+
+        // Simulate a legitimate attribute change that doesn't affect type
+        passwordInput.setAttribute("class", "modified");
+
+        // Wait for the MutationObserver to process
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Verify password was not cleared
+        expect(passwordInput.value).toBe("mySecretPassword");
+      });
+
+      it("should not monitor the same field twice", async () => {
+        fillScript.preventPasswordInspection = true;
+        fillScript.script = [[FillScriptActionTypes.fill_by_opid, "password", "mySecretPassword"]];
+
+        passwordInput.setAttribute("data-opid", "password");
+
+        // Call fillForm twice
+        await insertAutofillContentService.fillForm(fillScript);
+        await insertAutofillContentService.fillForm(fillScript);
+
+        const observers = insertAutofillContentService["passwordFieldObservers"];
+        // Should still only have one observer
+        expect(observers.size).toBe(1);
+        expect(observers.has(passwordInput)).toBe(true);
+      });
+    });
+
+    describe("cleanupPasswordFieldObserver", () => {
+      it("should disconnect and remove both observers", async () => {
+        fillScript.preventPasswordInspection = true;
+        fillScript.script = [[FillScriptActionTypes.fill_by_opid, "password", "mySecretPassword"]];
+
+        passwordInput.setAttribute("data-opid", "password");
+
+        await insertAutofillContentService.fillForm(fillScript);
+
+        const observers = insertAutofillContentService["passwordFieldObservers"];
+        expect(observers.has(passwordInput)).toBe(true);
+
+        // Verify both observers are stored
+        const observerPair = observers.get(passwordInput);
+        expect(observerPair).toBeDefined();
+        expect(observerPair?.observer).toBeDefined();
+        expect(observerPair?.cleanupObserver).toBeDefined();
+
+        // Clean up the observers
+        insertAutofillContentService["cleanupPasswordFieldObserver"](passwordInput);
+
+        expect(observers.has(passwordInput)).toBe(false);
+      });
+    });
+  });
 });

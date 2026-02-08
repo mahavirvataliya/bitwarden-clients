@@ -106,6 +106,12 @@ import {
       throw new Error("Unable to auto-submit form, no autosubmit reference found.");
     }
 
+    // Check if auto-submit is enabled via feature flag
+    if (fillScript.enableAutoSubmit === false) {
+      endUpAutoSubmitLoginWorkflow();
+      return; // Skip auto-submit when feature flag is disabled
+    }
+
     updateIsFieldCurrentlyFilling(true);
     await insertAutofillContentService.fillForm(fillScript);
     setAutoSubmitLoginTimeout(400);

@@ -299,6 +299,74 @@ describe("AutoSubmitLogin content script", () => {
         expect(formElement.submit).toHaveBeenCalled();
       });
     });
+
+    describe("when enableAutoSubmit feature flag is disabled", () => {
+      it("ends the auto-submit login workflow when the flag is set to false", async () => {
+        await initAutoSubmitWorkflow();
+
+        fillScriptMock.enableAutoSubmit = false;
+
+        sendMockExtensionMessage({
+          command: "triggerAutoSubmitLogin",
+          fillScript: fillScriptMock,
+          pageDetailsUrl: globalThis.location.href,
+        });
+        await flushPromises();
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+          {
+            command: "updateIsFieldCurrentlyFilling",
+            isFieldCurrentlyFilling: false,
+          },
+          expect.any(Function),
+        );
+      });
+
+      it("proceeds with auto-submit when the flag is not set (defaults to enabled)", async () => {
+        document.body.innerHTML = `
+          <form>
+            <input type="text" id="username" name="username">
+            <input type="password" id="password" name="password">
+            <input type="submit" value="Submit">
+          </form>
+        `;
+
+        const usernameInput = document.querySelector(
+          'input[type="text"]',
+        ) as HTMLInputElement;
+        const passwordInput = document.querySelector(
+          'input[type="password"]',
+        ) as HTMLInputElement;
+        (usernameInput as any).opid = "username-field";
+        (passwordInput as any).opid = "password-field";
+
+        pageDetailsMock.fields = [
+          createAutofillFieldMock({ opid: "username-field", form: "form-1" }),
+          createAutofillFieldMock({ opid: "password-field", form: "form-1", type: "password" }),
+        ];
+        fillScriptMock.autosubmit = ["form-1"];
+        fillScriptMock.script = [
+          ["fill_by_opid", "username-field", "testuser"],
+          ["fill_by_opid", "password-field", "testpass"],
+        ];
+        // Don't set enableAutoSubmit, so it defaults to enabled
+        delete fillScriptMock.enableAutoSubmit;
+
+        await initAutoSubmitWorkflow();
+
+        const submitButton = document.querySelector('input[type="submit"]') as HTMLInputElement;
+        jest.spyOn(submitButton, "click");
+
+        sendMockExtensionMessage({
+          command: "triggerAutoSubmitLogin",
+          fillScript: fillScriptMock,
+          pageDetailsUrl: globalThis.location.href,
+        });
+        await flushPromises();
+
+        expect(submitButton.click).toHaveBeenCalled();
+      });
+    });
   });
 });
 

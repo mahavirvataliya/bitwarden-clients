@@ -47,6 +47,7 @@ import { FieldView } from "@bitwarden/common/vault/models/view/field.view";
 import { IdentityView } from "@bitwarden/common/vault/models/view/identity.view";
 
 import { BrowserApi } from "../../platform/browser/browser-api";
+import { flagEnabled } from "../../platform/flags";
 import { ScriptInjectorService } from "../../platform/services/abstractions/script-injector.service";
 // FIXME (PM-22628): Popup imports are forbidden in background
 // eslint-disable-next-line no-restricted-imports
@@ -816,6 +817,10 @@ export default class AutofillService implements AutofillServiceInterface {
       default:
         return null;
     }
+
+    // Set feature flags on the fill script
+    fillScript.preventPasswordInspection = flagEnabled("preventPasswordInspection");
+    fillScript.enableAutoSubmit = flagEnabled("enableAutoSubmit");
 
     return fillScript;
   }

@@ -30,4 +30,8 @@ export default class AutofillScript {
   untrustedIframe!: boolean;
   /** Non-null asserted. */
   itemType!: string; // Appears to be unused, read but not written
+  /** Feature flag to prevent password field inspection */
+  preventPasswordInspection?: boolean;
+  /** Feature flag to enable auto-submit */
+  enableAutoSubmit?: boolean;
 }

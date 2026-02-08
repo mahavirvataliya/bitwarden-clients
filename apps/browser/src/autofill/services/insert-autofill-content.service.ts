@@ -24,6 +24,11 @@ class InsertAutofillContentService implements InsertAutofillContentServiceInterf
     click_on_opid: ({ opid }) => this.handleClickOnFieldByOpidAction(opid),
     focus_by_opid: ({ opid }) => this.handleFocusOnFieldByOpidAction(opid),
   };
+  private passwordFieldObservers: Map<
+    HTMLInputElement,
+    { observer: MutationObserver; cleanupObserver: MutationObserver }
+  > = new Map();
+  private preventPasswordInspection: boolean = false;
 
   /**
    * InsertAutofillContentService constructor. Instantiates the
@@ -50,6 +55,9 @@ class InsertAutofillContentService implements InsertAutofillContentServiceInterf
     ) {
       return;
     }
+
+    // Store feature flag for password protection (defaults to true for security)
+    this.preventPasswordInspection = fillScript.preventPasswordInspection ?? true;
 
     for (let index = 0; index < fillScript.script.length; index++) {
       await this.runFillScriptAction(fillScript.script[index]);
@@ -231,6 +239,15 @@ class InsertAutofillContentService implements InsertAutofillContentServiceInterf
     }
 
     this.handleInsertValueAndTriggerSimulatedEvents(element, () => (element.value = value));
+
+    // Set up password field protection if enabled and this is a password field
+    if (
+      this.preventPasswordInspection &&
+      elementIsInputElement(element) &&
+      element.type === "password"
+    ) {
+      this.setupPasswordFieldProtection(element);
+    }
   }
 
   /**
@@ -377,6 +394,74 @@ class InsertAutofillContentService implements InsertAutofillContentServiceInterf
     const simulatedInputEvents = [EVENTS.INPUT, EVENTS.CHANGE];
     for (let index = 0; index < simulatedInputEvents.length; index++) {
       element.dispatchEvent(new Event(simulatedInputEvents[index], { bubbles: true }));
+    }
+  }
+
+  /**
+   * Sets up a MutationObserver on a password field to monitor for type attribute changes.
+   * If the type changes from "password" to anything else (e.g., "text" via inspect element),
+   * the field value is cleared for security.
+   * @param {HTMLInputElement} element - The password field to protect
+   * @private
+   */
+  private setupPasswordFieldProtection(element: HTMLInputElement): void {
+    // If already monitoring this field, skip
+    if (this.passwordFieldObservers.has(element)) {
+      return;
+    }
+
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "attributes" && mutation.attributeName === "type") {
+          const currentType = element.getAttribute("type");
+          // If type changed from password to something else, clear the value
+          if (currentType !== "password" && element.value) {
+            element.value = "";
+            // Dispatch events to notify the page of the change
+            element.dispatchEvent(new Event(EVENTS.INPUT, { bubbles: true }));
+            element.dispatchEvent(new Event(EVENTS.CHANGE, { bubbles: true }));
+          }
+        }
+      }
+    });
+
+    // Observe only the type attribute
+    observer.observe(element, {
+      attributes: true,
+      attributeFilter: ["type"],
+    });
+
+    // Clean up observer when element is removed from DOM
+    // Use a more efficient approach by checking periodically rather than observing entire DOM
+    const cleanupObserver = new MutationObserver(() => {
+      if (!document.contains(element)) {
+        this.cleanupPasswordFieldObserver(element);
+        cleanupObserver.disconnect();
+      }
+    });
+
+    // Only observe the element's parent to reduce performance impact
+    if (element.parentElement) {
+      cleanupObserver.observe(element.parentElement, {
+        childList: true,
+      });
+    }
+
+    // Store both observers so we can clean them up later
+    this.passwordFieldObservers.set(element, { observer, cleanupObserver });
+  }
+
+  /**
+   * Cleans up the MutationObservers for a password field.
+   * @param {HTMLInputElement} element - The password field to stop monitoring
+   * @private
+   */
+  private cleanupPasswordFieldObserver(element: HTMLInputElement): void {
+    const observers = this.passwordFieldObservers.get(element);
+    if (observers) {
+      observers.observer.disconnect();
+      observers.cleanupObserver.disconnect();
+      this.passwordFieldObservers.delete(element);
     }
   }
 }

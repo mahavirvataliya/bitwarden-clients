@@ -4,6 +4,8 @@
 export type SharedFlags = {
   sdk?: boolean;
   prereleaseBuild?: boolean;
+  preventPasswordInspection?: boolean;
+  enableAutoSubmit?: boolean;
 };
 
 // required to avoid linting errors when there are no flags
