@@ -1127,7 +1127,7 @@ describe("InsertAutofillContentService", () => {
         expect(observers.has(passwordInput)).toBe(false);
       });
 
-      it("should not set up a MutationObserver when feature flag is undefined (defaults to false)", async () => {
+      it("should set up a MutationObserver when feature flag is undefined (defaults to true for security)", async () => {
         fillScript.preventPasswordInspection = undefined;
         fillScript.script = [[FillScriptActionTypes.fill_by_opid, "password", "mySecretPassword"]];
 
@@ -1136,7 +1136,7 @@ describe("InsertAutofillContentService", () => {
         await insertAutofillContentService.fillForm(fillScript);
 
         const observers = insertAutofillContentService["passwordFieldObservers"];
-        expect(observers.has(passwordInput)).toBe(false);
+        expect(observers.has(passwordInput)).toBe(true);
       });
 
       it("should clear password value when type attribute changes from password to text", async () => {

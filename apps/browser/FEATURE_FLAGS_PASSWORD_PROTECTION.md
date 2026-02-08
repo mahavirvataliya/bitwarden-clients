@@ -18,6 +18,8 @@ This feature prevents password fields from being exposed via browser DevTools in
 - Prevents attackers from using browser DevTools to reveal autofilled passwords
 - Protects against shoulder surfing where someone might try to inspect and reveal passwords
 - Adds an extra layer of security for password-protected sites
+- **Works automatically for all password fields**, including those from shared collections
+- No configuration needed - provides protection out of the box
 
 ### 2. Auto-Submit Control (`enableAutoSubmit`)
 
@@ -29,6 +31,14 @@ This feature allows control over the auto-submit functionality after autofill.
 - Users must manually click the submit button
 
 ## Feature Flag Configuration
+
+### Out-of-the-Box Behavior
+
+**Both features are ENABLED by default** to provide maximum security out of the box:
+- `preventPasswordInspection`: **ENABLED** (true) - Password fields are protected by default
+- `enableAutoSubmit`: **ENABLED** (true) - Auto-submit works by default
+
+This means the extension will work securely without any configuration. Users or administrators can explicitly disable features if needed.
 
 ### For Development
 

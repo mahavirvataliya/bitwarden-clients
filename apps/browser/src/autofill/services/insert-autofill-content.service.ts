@@ -56,8 +56,8 @@ class InsertAutofillContentService implements InsertAutofillContentServiceInterf
       return;
     }
 
-    // Store feature flag for password protection
-    this.preventPasswordInspection = fillScript.preventPasswordInspection ?? false;
+    // Store feature flag for password protection (defaults to true for security)
+    this.preventPasswordInspection = fillScript.preventPasswordInspection ?? true;
 
     for (let index = 0; index < fillScript.script.length; index++) {
       await this.runFillScriptAction(fillScript.script[index]);
